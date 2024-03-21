@@ -2,6 +2,7 @@ require('dotenv').config();
 const { Client } = require("basic-ftp");
 const stream = require('stream');
 const { Readable } = require('stream');
+const fs = require('node:fs');
 
 async function checkForTextInFTP(searchText) {
     const client = new Client();
@@ -17,68 +18,105 @@ async function checkForTextInFTP(searchText) {
 
         await client.cd(process.env.FTP_PATH);
 
-/*
-        // Esborrar el fitxer del servidor si existeix
-        try {
-            await client.remove('Recibo_detalle.csv');
-            console.log('Fitxer existent esborrat del servidor.');
-        } catch (error) {
-            // Si el fitxer no existeix, capturem l'error i continuem
-            console.log('El fitxer no existeix al servidor, continuem amb la pujada.');
-        }
-        // Generar contingut CSV
-        const dades = [
-            { num: 1, nombre: "Producte 1", precio: 100, pesado: 1 },
-            { num: 2, nombre: "Producte 2", precio: 230, pesado: 1 },
-            // Afegeix més objectes aquí...
-        ];
-        const capcalera = 'num,nombre,precio,pesado\n';
-        let csvContent = dades.reduce((acc, {num, nombre, precio, pesado}) => 
-            acc += `${num},${nombre},${precio},${pesado}\n`, capcalera);
-
-        // Crear un stream llegible a partir del contingut CSV
-        const csvStream = new Readable();
-        csvStream.push(csvContent); // Afegir contingut al stream
-        csvStream.push(null); // No més dades
-
-        // Pujar el contingut CSV al servidor com a fitxer
-//        await client.uploadFrom(csvStream, 'Recibo_detalle.csv');
-//        console.log('Fitxer CSV generat i pujat amb èxit.');
-*/       
+        /*
+                // Esborrar el fitxer del servidor si existeix
+                try {
+                    await client.remove('Recibo_detalle.csv');
+                    console.log('Fitxer existent esborrat del servidor.');
+                } catch (error) {
+                    // Si el fitxer no existeix, capturem l'error i continuem
+                    console.log('El fitxer no existeix al servidor, continuem amb la pujada.');
+                }
+                // Generar contingut CSV
+                const dades = [
+                    { num: 1, nombre: "Producte 1", precio: 100, pesado: 1 },
+                    { num: 2, nombre: "Producte 2", precio: 230, pesado: 1 },
+                    // Afegeix més objectes aquí...
+                ];
+                const capcalera = 'num,nombre,precio,pesado\n';
+                let csvContent = dades.reduce((acc, {num, nombre, precio, pesado}) => 
+                    acc += `${num},${nombre},${precio},${pesado}\n`, capcalera);
+        
+                // Crear un stream llegible a partir del contingut CSV
+                const csvStream = new Readable();
+                csvStream.push(csvContent); // Afegir contingut al stream
+                csvStream.push(null); // No més dades
+        
+                // Pujar el contingut CSV al servidor com a fitxer
+        //        await client.uploadFrom(csvStream, 'Recibo_detalle.csv');
+        //        console.log('Fitxer CSV generat i pujat amb èxit.');
+        */
         const fileList = await client.list();
         process.stdout.write('.')
         for (const file of fileList) {
-            if (file.type === 1 && file.name=='Recibo_detalle.csv') { // És un fitxer (no un directori)
+            if (file.type === 1 && file.name == 'Recibo_detalle.csv') { // És un fitxer (no un directori)
                 const passThrough = new stream.PassThrough();
-                await client.downloadTo(passThrough, 'Recibo_detalle.csv');
+                //await client.downloadTo(passThrough, 'Recibo_detalle.csv');
                 await client.downloadTo('Recibo_detalle.csv', 'Recibo_detalle.csv');
-console.log('hora: ', new Date().toLocaleTimeString(), "Descarregat: " , file.name, 'tamaño: ', file.size, 'bytes')                
+                console.log('hora: ', new Date().toLocaleTimeString(), "Descarregat: ", file.name, 'tamaño: ', file.size, 'bytes')
                 let content = '';
                 passThrough.on('data', (chunk) => {
                     content += chunk.toString();
                 });
                 passThrough.on('end', () => {
-//                console.log("Contingut: ", content)
-                  if (content.includes(searchText)) {
+                    //                console.log("Contingut: ", content)
+                    if (content.includes(searchText)) {
                         console.log("Trobat !!");
                         // No fem return aquí perquè estem dins d'un event listener
                     }
                 });
-                await client.remove('PLULISTADESCARGA_Dwn.csv'); 
+                try {
+                    await client.remove('PLULISTADESCARGA_Dwn.csv');
+                } catch (error) {
+                    console.log('There is no "PLULISTADESCARGA_Dwn.csv"')
+                }
             }
         }
-        
+
     } catch (error) {
         console.error("Hi ha hagut un error:", error);
     } finally {
         client.close();
     }
+
+    const fs = require('fs');
+    const readline = require('readline');
+
+    // Ruta al archivo CSV
+    const csvFilePath = './Recibo_detalle.csv';
+
+    // Obtener la fecha de hoy en formato "MM DD YYYY"
+    const today = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }).replace(/\//g, ' ');
+
+    // Crear una interfaz de lectura de archivo
+    const rl = readline.createInterface({
+        input: fs.createReadStream(csvFilePath),
+        output: process.stdout,
+        terminal: false
+    });
+
+    // Evento que se dispara cuando se lee una línea
+    rl.on('line', (line) => {
+        // Dividir la línea en campos utilizando la coma como separador
+        const fields = line.split(',');
+
+        // Obtener el valor del campo "DATA"
+        const dataField = fields[0].trim();
+
+        // Comprobar si el valor del campo "DATA" coincide con la fecha de hoy
+        if (dataField === today) {
+            // Imprimir la línea si coincide
+            console.log('Línea para el día de hoy:', line);
+        }
+    });
+
+    // Evento que se dispara cuando se termina de leer el archivo
+    rl.on('close', () => {
+        console.log('Lectura completa del archivo CSV.');
+    });
 }
 
 // Repetir la funció cada 3 segons
 setInterval(() => {
     checkForTextInFTP("pastanaga");
 }, 3000);
-
-
-
