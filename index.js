@@ -208,8 +208,8 @@ async function processLine(line, ultimoTicket) {
                 const quantitat = fields[5].trim();
                 const importe = fields[7].trim();
                 const tipus_venta = 'V';
-                const forma_marcar = 'No se'; //No se que poner
-                const otros = 'Testing'; //No se que poner
+                const forma_marcar = '';
+                const otros = '';
                 const insertVenuts = `INSERT INTO ${tabla}(Botiga, Data, Dependenta, Num_tick, Estat, Plu, Quantitat, Import, Tipus_venta, FormaMarcar, Otros) VALUES('${botiga}', CONVERT(DATETIME, '${año}-${mes}-${dia} ${horas}:${minutos.padStart(2, '0')}', 120), '${dependenta}', '${num_tick}', '', '${plu}', ${quantitat}, ${importe}, '${tipus_venta}', '${forma_marcar}', '${otros}')`;
                 await runSql(insertVenuts, database);
                 if (num_tick > ultimoTicket)
