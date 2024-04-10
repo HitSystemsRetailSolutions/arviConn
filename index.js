@@ -5,6 +5,7 @@ const { Readable } = require('stream');
 const fs = require('node:fs');
 const { runSql } = require('./sqlService');
 
+//let test = false;
 let IP = process.env.FTP_HOST;
 let nombreEmpresa;
 let database = 'fac_demo'
@@ -13,26 +14,22 @@ let MAXiteracion = 0;
 async function checkForTextInFTP(searchText) {
     const client = new Client();
     client.ftp.verbose = false; // Canviar a true per a debug
-    const ipQ = `SELECT * from [Llicencies] where IdExterna = '192.168.1.50';`;
-    
+    const ipQ = `SELECT * from [Llicencies] where Tipus = 'ArviPeso';`;
     const resultIP = await runSql(ipQ, 'Hit');
+    //console.log(`----------${IP}--------${database}----------${nombreEmpresa}-----------`)
     MAXiteracion = resultIP.length - 1;
     if (resultIP.length > 0) {
         IP = resultIP[iteracion].IdExterna;
         nombreEmpresa = resultIP[iteracion].Empresa;
     }
-    const databaseQ = `select db from [web_empreses] where nom = ${nombreEmpresa}`;
+    const databaseQ = `select * from [web_empreses] where Nom = '${nombreEmpresa}'`;
     const resultDB = await runSql(databaseQ, 'Hit');
     if (resultDB.length > 0) {
-        database = resultDB[iteracion].db;
+        database = resultDB[iteracion].Db;
     }
-    /* Coger de la base de datos la IP y la DATABASE donde sincronizo 
-    use Hit;
-    SELECT * from [Llicencies] where IdExterna = '192.168.1.50';
-    select db from [web_empreses] where nom = 'Demo'
-    */
+    //console.log(`----------${IP}--------${database}----------${nombreEmpresa}-----------`)
     try {
-        
+
         await client.access({
             host: IP,
             user: process.env.FTP_USER,
@@ -129,7 +126,11 @@ async function checkForTextInFTP(searchText) {
     } catch (error) {
         console.error("Hi ha hagut un error:", error);
     } finally {
+
         client.close();
+    }
+    if (iteracion < MAXiteracion) {
+        iteracion++;
     }
 
 }
