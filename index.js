@@ -131,6 +131,8 @@ async function checkForTextInFTP(searchText) {
     }
     if (iteracion < MAXiteracion) {
         iteracion++;
+    } else{
+        iteracion = 0
     }
 
 }
