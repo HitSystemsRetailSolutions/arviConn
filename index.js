@@ -9,18 +9,20 @@ const { runSql } = require('./sqlService');
 let IP = process.env.FTP_HOST;
 let nombreEmpresa;
 let database = 'fac_demo'
+let botigaDB = 0;
 let iteracion = 0;
 let MAXiteracion = 0;
 async function checkForTextInFTP(searchText) {
     const client = new Client();
     client.ftp.verbose = false; // Canviar a true per a debug
-    const ipQ = `SELECT * from [Llicencies] where Tipus = 'ArviPeso';`;
-    const resultIP = await runSql(ipQ, 'Hit');
+    const llicenciaQ = `SELECT * from [Llicencies] where Tipus = 'ArviPeso';`;
+    const resultLlicencia = await runSql(llicenciaQ, 'Hit');
     //console.log(`----------${IP}--------${database}----------${nombreEmpresa}-----------`)
-    MAXiteracion = resultIP.length - 1;
-    if (resultIP.length > 0) {
-        IP = resultIP[iteracion].IdExterna;
-        nombreEmpresa = resultIP[iteracion].Empresa;
+    MAXiteracion = resultLlicencia.length - 1;
+    if (resultLlicencia.length > 0) {
+        IP = resultLlicencia[iteracion].IdExterna;
+        nombreEmpresa = resultLlicencia[iteracion].Empresa;
+        botigaDB =  resultLlicencia[iteracion].Llicencia
     }
     const databaseQ = `select * from [web_empreses] where Nom = '${nombreEmpresa}'`;
     const resultDB = await runSql(databaseQ, 'Hit');
@@ -204,7 +206,7 @@ async function processLine(line, ultimoTicket) {
             const tabla = `[V_Venut_${año}-${mes}]`;
             const sqlQ = `SELECT top 1 * FROM ${tabla}`;
             try {
-                const botiga = 1; //No se que poner
+                const botiga = botigaDB;
                 const dependenta = fields[8].trim();
                 const plu = fields[3].trim();
                 const quantitat = fields[5].trim();
@@ -230,7 +232,9 @@ async function processLine(line, ultimoTicket) {
 }
 
 async function processLines(lines) {
-    const recordsQ = `SELECT * FROM [records] WHERE LEFT(concepte, LEN('Ultimo ticket:')) = 'Ultimo ticket:'`;
+    console.log("-----------------------------------------------------------------------")
+    const recordsQ = `SELECT * FROM [records] WHERE LEFT(concepte, LEN('${botigaDB} Ultimo ticket:')) = '${botigaDB} Ultimo ticket:'`;
+    //console.log(recordsQ)
     const resultRecords = await runSql(recordsQ, database);
     //console.log(resultRecords);
 
@@ -239,15 +243,19 @@ async function processLines(lines) {
         const concepte = resultRecords[0].Concepte;
         ultimoTicket = parseInt(concepte.split(':')[1].trim());
     }
+    //console.log(ultimoTicket);
     let i = 0
     for (const line of lines) {
         //console.log(++i); // Increment and log the index
         //++i;
         i = await processLine(line, ultimoTicket);
     }
-    const recordText = `Ultimo ticket: ${i}`;
+    const recordText = `${botigaDB} Ultimo ticket: ${i}`;
     const records = `INSERT INTO [records] (TimeStamp, Concepte) VALUES(GETDATE(), '${recordText}')`;
-    const updateRecord = `UPDATE [records] SET concepte = '${recordText}' WHERE LEFT(concepte, LEN('Ultimo ticket:')) = 'Ultimo ticket:'`;
+    const updateRecord = `UPDATE [records] SET concepte = '${recordText}' WHERE LEFT(concepte, LEN('${botigaDB} Ultimo ticket:')) = '${botigaDB} Ultimo ticket:'`;
+    //console.log("-------------------------------------------_-_-_-_-_-_-_-")
+    //console.log(records)
+    //console.log(updateRecord)
 
     if (i != ultimoTicket) {
         if (resultRecords.length < 1) {
@@ -261,7 +269,7 @@ async function processLines(lines) {
 }
 
 
-// Repetir la funció cada 3 segons
-setInterval(() => {
-    checkForTextInFTP("pastanaga");
-}, 3000);
+// Repetir la funció cada 5 segons
+setInterval(async () => {
+    await checkForTextInFTP("pastanaga");
+}, 5000);
