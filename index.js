@@ -210,7 +210,7 @@ async function processLine(line, ultimoTicket) {
                 const dependenta = fields[8].trim();
                 const plu = fields[3].trim();
                 const quantitat = fields[5].trim();
-                const importe = fields[7].trim();
+                const importe = convertirNumero(fields[7].trim());
                 const tipus_venta = 'V';
                 const forma_marcar = '';
                 const otros = '';
@@ -230,6 +230,12 @@ async function processLine(line, ultimoTicket) {
     }
     return ultimoTicket
 }
+
+function convertirNumero(numero) {
+    // Convertir el número a flotante y luego dividir por 100
+    return parseFloat(numero) / 100;
+}
+
 
 async function processLines(lines) {
     console.log("-----------------------------------------------------------------------")
@@ -269,7 +275,7 @@ async function processLines(lines) {
 }
 
 
-// Repetir la funció cada 5 segons
+// Repetir la funció cada 10 segons
 setInterval(async () => {
     await checkForTextInFTP("pastanaga");
-}, 5000);
+}, 10000);
