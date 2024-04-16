@@ -2,8 +2,12 @@ require('dotenv').config();
 const { Client } = require("basic-ftp");
 const stream = require('stream');
 const { Readable } = require('stream');
-const fs = require('node:fs');
+const fs = require('fs');
+const readline = require('readline');
 const { runSql } = require('./sqlService');
+const { createObjectCsvWriter } = require('csv-writer');
+const csvFilePath = './Recibo_detalle.csv';
+const csvFilePath2 = './PLULISTADOWN.csv';
 
 //let test = false;
 let IP = process.env.FTP_HOST;
@@ -12,6 +16,7 @@ let database = 'fac_demo'
 let botigaDB = 0;
 let iteracion = 0;
 let MAXiteracion = 0;
+
 async function checkForTextInFTP(searchText) {
     const client = new Client();
     client.ftp.verbose = false; // Canviar a true per a debug
@@ -22,7 +27,7 @@ async function checkForTextInFTP(searchText) {
     if (resultLlicencia.length > 0) {
         IP = resultLlicencia[iteracion].IdExterna;
         nombreEmpresa = resultLlicencia[iteracion].Empresa;
-        botigaDB =  resultLlicencia[iteracion].Llicencia
+        botigaDB = resultLlicencia[iteracion].Llicencia
     }
     const databaseQ = `select * from [web_empreses] where Nom = '${nombreEmpresa}'`;
     const resultDB = await runSql(databaseQ, 'Hit');
@@ -69,11 +74,7 @@ async function checkForTextInFTP(searchText) {
         //        await client.uploadFrom(csvStream, 'Recibo_detalle.csv');
         //        console.log('Fitxer CSV generat i pujat amb èxit.');
         */
-        const fs = require('fs');
-        const readline = require('readline');
 
-        // Ruta al archivo CSV
-        const csvFilePath = './Recibo_detalle.csv';
 
         // Obtener la fecha de hoy en formato "MM DD YYYY"
         const today = new Date();
@@ -88,6 +89,7 @@ async function checkForTextInFTP(searchText) {
                 const passThrough = new stream.PassThrough();
                 //await client.downloadTo(passThrough, 'Recibo_detalle.csv');
                 await client.downloadTo('Recibo_detalle.csv', 'Recibo_detalle.csv');
+                await client.downloadTo('PLULISTADOWN.csv', 'PLULISTADOWN.csv');
                 console.log('hora: ', new Date().toLocaleTimeString(), "Descarregat: ", file.name, 'tamaño: ', file.size, 'bytes')
                 let content = '';
                 passThrough.on('data', (chunk) => {
@@ -115,12 +117,13 @@ async function checkForTextInFTP(searchText) {
                     lineaActual = line; // Almacenar la línea actual
                     lines.push(lineaActual)
                 });
+
+
                 // Evento que se dispara cuando se termina de leer el archivo
                 rl.on('close', () => {
                     console.log('Lectura completa del archivo CSV.');
                     processLines(lines); //Leer todo el array
                 });
-
             }
 
         }
@@ -133,10 +136,68 @@ async function checkForTextInFTP(searchText) {
     }
     if (iteracion < MAXiteracion) {
         iteracion++;
-    } else{
+    } else {
         iteracion = 0
     }
 
+}
+
+async function uploadFileToFTP(filePath) {
+    const client = new Client();
+    client.ftp.verbose = false; // Cambiar a true para depurar
+    try {
+        await client.access({
+            host: IP,
+            user: process.env.FTP_USER,
+            password: process.env.FTP_PASSWORD,
+            secure: false, // Canviar a true si es requereix una connexió segura
+        });
+
+        await client.cd(process.env.FTP_PATH);
+        const ftpPath = process.env.FTP_PATH || "/opt/pcscale/files/csv"
+
+        // Subir el archivo al servidor FTP
+        await client.uploadFrom(filePath, `${ftpPath}/PLULISTAUP.csv`);
+        console.log('Archivo subido con éxito al servidor FTP.');
+    } catch (error) {
+        console.error('Error al subir el archivo al servidor FTP:', error);
+    } finally {
+        client.close();
+    }
+}
+// Consulta SQL para obtener los datos de la base de datos
+
+
+// Función para ejecutar la consulta y escribir los resultados en un archivo CSV
+async function exportToCsv() {
+    try {
+        const sqlQuery = `SELECT Codi as "num plu", SUBSTRING(NOM, LEN('Arvi ') + 1, LEN(NOM)) as "nombre", PREU as "precio", EsSumable as "pesado / no pesado", TipoIva as "IVA", Familia as "FAMILIA" FROM [articles] where LEFT(NOM, LEN('Arvi ')) = 'Arvi' order by Codi`;
+        const result = await runSql(sqlQuery, database);
+
+        // Configuración de las columnas del archivo CSV
+        const csvWriter = createObjectCsvWriter({
+            path: 'PLULISTAUP.csv',
+            header: [
+                { id: 'num plu', title: 'num plu' },
+                { id: 'nombre', title: 'nombre' },
+                { id: 'precio', title: 'precio' },
+                { id: 'pesado / no pesado', title: 'pesado / no pesado' },
+                { id: 'IVA', title: 'IVA' },
+                { id: 'FAMILIA', title: 'FAMILIA' },
+            ],
+        });
+        //console.log(result);
+        for (let i = 0; i < result.length; i++) {
+            // Ajustar el valor de 'pesado / no pesado'
+            result[i]['pesado / no pesado'] = result[i]['pesado / no pesado'] ? 1 : 0;
+            result[i]['precio'] *= 100
+            //console.log(result[i]);
+            await csvWriter.writeRecords([result[i]]);
+        }
+        console.log('Datos exportados correctamente a PLULISTAUP.csv');
+    } catch (error) {
+        console.error('Error al exportar datos:', error);
+    }
 }
 
 let acumuladorLinea = '';
@@ -199,7 +260,6 @@ async function processLine(line, ultimoTicket) {
     año = partes[2];
 
     const num_tick = fields[2].trim();
-    //Falta meter varios productos con el mismo numero de ticket
     if (ultimoTicket < num_tick || ultimoTicket == '') {
         if (mes === mesActual && año === añoActual) {
             console.log('Línea :', line);
@@ -216,13 +276,11 @@ async function processLine(line, ultimoTicket) {
                 const otros = '';
                 const insertVenuts = `INSERT INTO ${tabla}(Botiga, Data, Dependenta, Num_tick, Estat, Plu, Quantitat, Import, Tipus_venta, FormaMarcar, Otros) VALUES('${botiga}', CONVERT(DATETIME, '${año}-${mes}-${dia} ${horas}:${minutos.padStart(2, '0')}', 120), '${dependenta}', '${num_tick}', '', '${plu}', ${quantitat}, ${importe}, '${tipus_venta}', '${forma_marcar}', '${otros}')`;
                 await runSql(insertVenuts, database);
+                existArticle(plu);
                 if (num_tick > ultimoTicket)
                     ultimoTicket = num_tick;
                 //console.log(`Records: ${año} ${mes} ${dia} ${horas} ${minutos}`)
-                //console.time("Patata")
-
                 console.log("--------------------------------------------------------------------------");
-                //console.timeEnd("Patata");
             } catch (error) {
                 console.error('Error al ejecutar el insert:', error);
             }
@@ -232,7 +290,6 @@ async function processLine(line, ultimoTicket) {
 }
 
 function convertirNumero(numero) {
-    // Convertir el número a flotante y luego dividir por 100
     return parseFloat(numero) / 100;
 }
 
@@ -259,7 +316,6 @@ async function processLines(lines) {
     const recordText = `${botigaDB} Ultimo ticket: ${i}`;
     const records = `INSERT INTO [records] (TimeStamp, Concepte) VALUES(GETDATE(), '${recordText}')`;
     const updateRecord = `UPDATE [records] SET concepte = '${recordText}' WHERE LEFT(concepte, LEN('${botigaDB} Ultimo ticket:')) = '${botigaDB} Ultimo ticket:'`;
-    //console.log("-------------------------------------------_-_-_-_-_-_-_-")
     //console.log(records)
     //console.log(updateRecord)
 
@@ -272,10 +328,66 @@ async function processLines(lines) {
             console.log(`Se actualizó el registro existente: '${recordText}'`);
         }
     }
+    const sqlEnviar = `SELECT Tipus FROM [missatgesaenviar] WHERE Tipus = 'Articles'`;
+    const deleteEnviar = `DELETE FROM missatgesaenviar WHERE Tipus = 'Articles'`;
+    const resultEnviar = await runSql(sqlEnviar, database)
+    exportToCsv();
+    if (resultEnviar.length > 0) {
+        
+        uploadFileToFTP('PLULISTAUP.csv')
+        runSql(deleteEnviar, database);
+    }
+
+}
+
+async function existArticle(numeroPlu) {
+    const rl2 = readline.createInterface({
+        input: fs.createReadStream(csvFilePath2),
+        output: process.stdout,
+        terminal: false
+    });
+    const articles = [];
+
+    rl2.on('line', async (line) => {
+        //articles.push(line);
+        const fields = line.split(',');
+        if (fields[0].trim() == numeroPlu) {
+            console.log(line)
+            const Codi = fields[0].trim();
+            const NOM = 'Arvi ' + fields[1].trim();
+            const PREU = convertirNumero(fields[2].trim());
+            const PreuMajor = convertirNumero(fields[2].trim());
+            const Desconte = 0;
+            const EsSumable = fields[3].trim();
+            const Familia = fields[5].trim();
+            const TipoIva = fields[4].trim();
+            const NoDescontesEspecials = 0;
+            const recordsQ = `SELECT * FROM [articles] WHERE Codi = ${numeroPlu}`;
+            //console.log(recordsQ)
+            const resultRecords = await runSql(recordsQ, database);
+            //console.log(resultRecords);
+            const article = `INSERT INTO [articles] (Codi, NOM, PREU, PreuMajor, Desconte, EsSumable, Familia, CodiGenetic, TipoIva, NoDescontesEspecials) 
+            VALUES('${Codi}', '${NOM}', '${PREU}', '${PreuMajor}', '${Desconte}', '${EsSumable}', '${Familia}', '${Codi}', '${TipoIva}', '${NoDescontesEspecials}')`;
+            const updateArticle = `UPDATE [articles] SET NOM = '${NOM}', PREU = '${PREU}', PreuMajor = '${PreuMajor}', Desconte = '${Desconte}', EsSumable = '${EsSumable}', Familia = '${Familia}', CodiGenetic = '${Codi}', TipoIva = '${TipoIva}', NoDescontesEspecials = '${NoDescontesEspecials}' WHERE Codi = '${Codi}'`;
+            if (resultRecords.length < 1) {
+                await runSql(article, database);
+                console.log(`Se insertó un articulo`);
+            } else {
+                await runSql(updateArticle, database);
+                console.log(`Se actualizó el articulo existente`);
+            }
+            return;
+        }
+    });
+
+    rl2.on('close', () => {
+        console.log('Lectura completa del archivo CSV PLULISTADOWN.');
+    });
+    console.log()
 }
 
 
 // Repetir la funció cada 10 segons
 setInterval(async () => {
     await checkForTextInFTP("pastanaga");
-}, 10000);
+}, 15000);
