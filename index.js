@@ -32,7 +32,7 @@ async function checkForTextInFTP(searchText) {
     const databaseQ = `select * from [web_empreses] where Nom = '${nombreEmpresa}'`;
     const resultDB = await runSql(databaseQ, 'Hit');
     if (resultDB.length > 0) {
-        database = resultDB[iteracion].Db;
+        database = resultDB[0].Db;
     }
     //console.log(`----------${IP}--------${database}----------${nombreEmpresa}-----------`)
     try {
