@@ -333,7 +333,7 @@ async function processLines(lines) {
     const resultEnviar = await runSql(sqlEnviar, database)
     exportToCsv();
     if (resultEnviar.length > 0) {
-        
+
         uploadFileToFTP('PLULISTAUP.csv')
         runSql(deleteEnviar, database);
     }

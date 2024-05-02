@@ -1,33 +1,11 @@
 {
-  "name": "SerialMQTTGatewayJS",
+  "name": "arviconn",
   "version": "1.0.1",
-  "keywords": [
-    "serial",
-    "usb",
-    "port",
-    "mqtt",
-    "broker",
-    "bidirectional",
-    "dual",
-    "gateway",
-    "topic",
-    "mosquitto",
-    "iot",
-    "arduino",
-    "nodejs"
-  ],
-  "description": "NodeJS serial to MQTT, MQTT to serial bidirectional gateway",
+  "keywords": [],
+  "description": "",
   "main": "index.js",
   "license": "MIT",
-  "author": "Fabvalaaah",
-  "email": "fabvalaaah@laposte.net",
-  "contributors": [
-    "Fabvalaaah"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/fabvalaaah/SerialMQTTGatewayJS.git"
-  },
+
   "scripts": {
     "start": "node index.js"
   },
