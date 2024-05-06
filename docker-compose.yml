@@ -1,0 +1,8 @@
+version: '3.8'
+services:
+  arviconn:
+    container_name: arviconn
+    build: .
+    environment:
+      TZ : Europe/Madrid
+    restart: unless-stopped
