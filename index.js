@@ -209,7 +209,7 @@ async function processLine(line, ultimoTicket) {
         if (mes === mesActual && año === añoActual) {
             const tabla = `[V_Venut_${año}-${mes}]`;
             const tablaAnulats = `[V_Anulats_${año}-${mes}]`;
-            const sqlQ = `SELECT top 1 * FROM ${tabla}`;
+            const selectQuery = `SELECT * FROM ${tabla} WHERE Num_tick = ${num_tick} AND Otros = ${otros}`
             const botiga = botigaDB;
             const dependenta = fields[10].trim();
             const plu = fields[3].trim();
@@ -221,10 +221,18 @@ async function processLine(line, ultimoTicket) {
             if (ultimoTicket < num_tick || ultimoTicket == '') {
                 console.log('Línea :', line);
                 if (fields[11] != 1 && fields[12] != 1) {
+                    const updateVenuts = `UPDATE ${tabla} SET Botiga = '${botiga}', Data = CONVERT(DATETIME, '${año}-${mes}-${dia} ${horas}:${minutos.padStart(2, '0')}', 120), Dependenta = '${dependenta}', Estat = '', Plu = '${plu}', Quantitat = ${quantitat}, Import = ${importe}, Tipus_venta = '${tipus_venta}', FormaMarcar = '${forma_marcar}', Otros = '${otros}' WHERE Num_tick = ${num_tick} AND Otros = ${otros}`;;
+                    const insertVenuts = `INSERT INTO ${tabla}(Botiga, Data, Dependenta, Num_tick, Estat, Plu, Quantitat, Import, Tipus_venta, FormaMarcar, Otros) VALUES('${botiga}', CONVERT(DATETIME, '${año}-${mes}-${dia} ${horas}:${minutos.padStart(2, '0')}', 120), '${dependenta}', '${num_tick}', '', '${plu}', ${quantitat}, ${importe}, '${tipus_venta}', '${forma_marcar}', '${otros}')`;
                     try {
-                        const insertVenuts = `INSERT INTO ${tabla}(Botiga, Data, Dependenta, Num_tick, Estat, Plu, Quantitat, Import, Tipus_venta, FormaMarcar, Otros) VALUES('${botiga}', CONVERT(DATETIME, '${año}-${mes}-${dia} ${horas}:${minutos.padStart(2, '0')}', 120), '${dependenta}', '${num_tick}', '', '${plu}', ${quantitat}, ${importe}, '${tipus_venta}', '${forma_marcar}', '${otros}')`;
-                        await runSql(insertVenuts, database);
-                        await existArticle(plu);
+                        const selectVenut = await runSql(selectQuery, database);
+                        if (selectVenut.length > 0) {
+                            console.log(`Este ticket ya existe: Actualizado ticket =${num_tick}= Linea =${otros}=`);
+                            await runSql(updateVenuts, database);
+                            await existArticle(plu);
+                        }else{
+                            await runSql(insertVenuts, database);
+                            await existArticle(plu);
+                        }
                         if (num_tick > ultimoTicket)
                             ultimoTicket = num_tick;
                         console.log("--------------------------------------------------------------------------");
@@ -242,7 +250,6 @@ async function processLine(line, ultimoTicket) {
             } else {
                 if (ultimoTicket >= num_tick) {
                     if (fields[11] == 1 || fields[12] == 1) {
-                        const selectQuery = `SELECT * FROM ${tabla} WHERE Num_tick = ${num_tick} AND Otros = ${otros}`
                         const deleteQuery = `DELETE FROM ${tabla} WHERE Num_tick = ${num_tick} AND Otros = ${otros}`;
                         const insertVenuts = `INSERT INTO ${tablaAnulats}(Botiga, Data, Dependenta, Num_tick, Estat, Plu, Quantitat, Import, Tipus_venta, FormaMarcar, Otros) VALUES('${botiga}', CONVERT(DATETIME, '${año}-${mes}-${dia} ${horas}:${minutos.padStart(2, '0')}', 120), '${dependenta}', '${num_tick}', '', '${plu}', ${quantitat}, ${importe}, '${tipus_venta}', '${forma_marcar}', '${otros}')`;
                         try {
