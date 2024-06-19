@@ -23,10 +23,15 @@ async function PoolCreation() {
 }
 
 async function runSql(sqlQ, db) {
-  if (!pool) await PoolCreation();
-  const c = `use ${db}; ${sqlQ}`;
-  let r = await pool.request().query(c);
-  return r.recordset; // Devuelve el conjunto de registros
+  try {
+    if (!pool) await PoolCreation();
+    const c = `use ${db}; ${sqlQ}`;
+    let r = await pool.request().query(c);
+    return r.recordset; // Devuelve el conjunto de registros
+  } catch (error) {
+    console.log(`Error runSql ${sqlQ}: ${error}`)
+  }
+
 }
 
 module.exports = {
