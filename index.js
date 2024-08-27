@@ -209,6 +209,7 @@ async function processLine(line, ultimoTicket) {
         if (mes === mesActual && año === añoActual) {
             const tabla = `[V_Venut_${año}-${mes}]`;
             const tablaAnulats = `[V_Anulats_${año}-${mes}]`;
+            const otros = fields[13];
             const selectQuery = `SELECT * FROM ${tabla} WHERE Num_tick = ${num_tick} AND Otros = ${otros}`
             const botiga = botigaDB;
             const dependenta = fields[10].trim();
@@ -217,7 +218,7 @@ async function processLine(line, ultimoTicket) {
             let importe = convertirNumero(fields[7].trim());
             const tipus_venta = 'V';
             const forma_marcar = '';
-            const otros = fields[13];
+
             if (ultimoTicket < num_tick || ultimoTicket == '') {
                 console.log('Línea :', line);
                 if (fields[11] != 1 && fields[12] != 1) {
@@ -229,7 +230,7 @@ async function processLine(line, ultimoTicket) {
                             console.log(`Este ticket ya existe: Actualizado ticket =${num_tick}= Linea =${otros}=`);
                             await runSql(updateVenuts, database);
                             await existArticle(plu);
-                        }else{
+                        } else {
                             await runSql(insertVenuts, database);
                             await existArticle(plu);
                         }
