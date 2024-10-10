@@ -90,6 +90,17 @@ async function checkForTextInFTP(searchText) {
                     processLines(lines); //Leer todo el array
                 });
             }
+            else {
+                const sqlEnviar = `SELECT Tipus FROM [missatgesaenviar] WHERE Tipus = 'Articles'`;
+                const deleteEnviar = `DELETE FROM missatgesaenviar WHERE Tipus = 'Articles'`;
+                const resultEnviar = await runSql(sqlEnviar, database)
+
+                if (resultEnviar.length > 0) {
+                    exportToCsv();
+                    uploadFileToFTP(`${nombreArchivo3}`)
+                    runSql(deleteEnviar, database);
+                }
+            }
         }
     } catch (error) {
         console.error("Hi ha hagut un error:", error);

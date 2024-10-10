@@ -6,3 +6,6 @@ services:
     environment:
       TZ : Europe/Madrid
     restart: unless-stopped
+    volumes:
+     - ~/balanza:/usr/src/balanza
+    
